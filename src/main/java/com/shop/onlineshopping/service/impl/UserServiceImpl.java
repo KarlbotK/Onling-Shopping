@@ -8,6 +8,7 @@ import com.shop.onlineshopping.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import org.springframework.util.DigestUtils;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -29,7 +30,12 @@ public class UserServiceImpl implements UserService {
         // 2. 如果没有，就开始保存
         User user = new User();
         user.setUsername(userDTO.getUsername());
-        user.setPassword(userDTO.getPassword());
+
+        // ★★★ MD5 + Salt (加盐) 加密 ★★★
+        String salt = "Shop2026_KUANG"; // 你的专属固定盐值
+        String md5Password = DigestUtils.md5DigestAsHex((userDTO.getPassword() + salt).getBytes());
+        user.setPassword(md5Password); // 存入数据库的是一串神仙都看不懂的乱码！
+
         user.setName(userDTO.getName());
         user.setRole(0); // 默认是普通用户
         user.setCreateTime(LocalDateTime.now()); // 设置当前时间
@@ -53,8 +59,11 @@ public class UserServiceImpl implements UserService {
         }
 
         // 3. 如果查到了，比对密码
-        // 注意：user.getPassword() 是数据库里的，userDTO.getPassword() 是前端传来的
-        if (!user.getPassword().equals(userDTO.getPassword())) {
+        // ★★★ 把前端传来的明文，加上同样的盐值，再MD5一次，然后去跟数据库比对 ★★★
+        String salt = "Shop2026_KUANG";
+        String inputMd5Password = DigestUtils.md5DigestAsHex((userDTO.getPassword() + salt).getBytes());
+
+        if (!user.getPassword().equals(inputMd5Password)) {
             throw new RuntimeException("登录失败：密码错误");
         }
 

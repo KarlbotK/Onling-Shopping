@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class OrdersServiceImpl implements OrdersService {
@@ -183,11 +184,19 @@ public class OrdersServiceImpl implements OrdersService {
         // 2. 去数据库查这个买家的详细信息 (主要是为了拿邮箱)
         User user = userMapper.selectById(userId);
 
+
         // 3. 检查用户是否存在，以及有没有填邮箱
         if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
-            // 4. 调用邮件服务发送
-            // (注意：这里如果邮件发送失败，控制台会报错，但不影响发货状态的修改)
-            emailService.sendShipmentEmail(user.getEmail(), orderNo);
+            // ★★★  引入 JDK8 的 CompletableFuture 异步线程池！ ★★★
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // 把发邮件这件耗时的事，扔给后台线程池去干！主线程直接结束！
+                    emailService.sendShipmentEmail(user.getEmail(), orderNo);
+                    System.out.println("异步发邮件任务提交成功，收件人：" + user.getEmail());
+                } catch (Exception e) {
+                    System.err.println("异步邮件发送失败：" + e.getMessage());
+                }
+            });
         }
     }
 
